@@ -1,53 +1,81 @@
 ﻿#include "FrameBufferEmulator.h"
+#include <iostream> 
 
+static int b[1000];
+static int N = 0;
+static bool isTriangle = false;
+static bool isInitialized = false;
 
-//  buff フレームバッファの先頭アドレス
-//  width, height フレームバッファの高さと横幅
-//  radius 円の半径
-//  centerX, centerY 中心座標(X, Y)
-//  color 描画色（B,G,Rの配列）
-void drawFilledCircle(unsigned char* buff, int width, int height, int radius, int centerX, int centerY, unsigned char color[3])
-{
-	const int squaredRadius = radius * radius; // 半径の二乗
-	for (int y = 0; y < height; y++) { // 縦方向のループ
-		int squaredY = y - centerY;	// Y軸の中心からの距離
-		squaredY *= squaredY;  // 二乗しておく
-		for (int x = 0; x < width; x++) { // 横方向のループ
-			int squaredX = x - centerX;	// X軸の中心からの距離
-			squaredX *= squaredX;  // 二乗しておく
-			if (squaredY + squaredX <= squaredRadius) { // 距離が半径以下ならば（二乗どうしで比較）
-				// 現在のX,Yで示す位置は円の内側として色を置く
-				*buff++ = color[0];  // B
-				*buff++ = color[1];  // G
-				*buff++ = color[2];  // R
-			}
-			else {
-				buff += 3;	// 現在のX,Yで示す位置は円の外側（色は置かず次のピクセルに移る）
-			}
-		}
-	}
-}
-
-int centerX; // 円の中心座標X
-int centerY; // 円の中心座標Y
-int radius;  // 円の半径
-
-// 初期化処理（最初に1回だけ呼び出される）
 void FrameBufferEmulator::initUser()
 {
-	// フレームバッファの中心座標を求める
-	centerX = width / 2;
-	centerY = height / 2;
-	radius = 100; // 初期の半径
+    //入力
+    N = 6;
+    b[0] = 1; b[1] = 4; b[2] = 1; b[3] = 3; b[4] = 2; b[5] = 4;
+    isTriangle = false;
+    isInitialized = true;
 }
 
-// 描画処理（毎フレーム呼び出される）
+// 描画処理
 void FrameBufferEmulator::drawUser(unsigned char* buff, int mode, int keyLevel, int keyTrigger)
 {
-	unsigned char color[3] = { 10, 200, 0 }; // B, G, R
+    if (isInitialized) initUser();
 
-	if (keyTrigger == SDLK_UP) { // 上矢印キーが押されたら
-		radius++;  // 半径を大きくする
-	}
-	drawFilledCircle(buff, width, height, radius, centerX, centerY, color); // 円を描画する
+    if (keyTrigger == SDLK_RIGHT && !isTriangle) {
+
+        // 三角形判定
+        isTriangle = true;
+
+        if (b[0] != 1) isTriangle = false;
+        else {
+            for (int i = 1; i < N; i++) {
+                if (b[i] != b[i - 1] + 1) { isTriangle = false; break; }
+            }
+        }
+
+        // 三角形でなければ、次の状態
+        if (!isTriangle) {
+
+            int tmp[1000];
+            int m = 0;
+
+            for (int i = 0; i < N; i++) {
+                if (b[i] > 1) tmp[m++] = b[i] - 1;
+            }
+
+            for (int i = 0; i < m; i++) b[i] = tmp[i];
+            b[m] = N;
+            N = m + 1;
+        }
+    }
+
+   
+    for (int i = 0; i < width * height * 3; i++) {
+        buff[i] = 0;
+    }
+
+    
+    int blockSize = 20; 
+    for (int i = 0; i < N; i++) {
+        for (int h = 0; h < b[i]; h++) {
+    
+            int startX = 30 + i * (blockSize + 2);
+            int startY = (height - 30) - h * (blockSize + 2);
+
+            for (int dy = 0; dy < blockSize; dy++) {
+               
+                for (int dx = 0; dx < blockSize; dx++) {
+                    
+                    int px = startX + dx;
+                    int py = startY - dy;
+                    
+                    if (px >= 0 && px < width && py >= 0 && py < height) {
+                        int pos = (py * width + px) * 3;
+                        buff[pos + 0] = 100; // B
+                        buff[pos + 1] = 0; // G
+                        buff[pos + 2] = 0; // R
+                    }
+                }
+            }
+        }
+    }
 }
